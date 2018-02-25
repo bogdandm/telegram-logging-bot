@@ -1,9 +1,7 @@
-import json
 import logging
-import os
 
 from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
+from telegram.ext import Updater
 
 from handlers import main_conversation
 
@@ -54,7 +52,7 @@ def error(bot: Bot, update: Update, error: Exception):
 #             logging.error(sys.exc_info()[0])
 
 
-def main(token: str, password: str):
+def main(token: str):
     updater = Updater(token)
     dispatcher = updater.dispatcher
     dispatcher.add_error_handler(error)
@@ -65,10 +63,7 @@ def main(token: str, password: str):
 
 
 if __name__ == '__main__':
-    TOKEN = os.environ.get("TELEGRAM_TOKEN")
-    PASSWORD = os.environ.get("TELEGRAM_ACCESS_PASSWORD")
-    if TOKEN.startswith("/"):
-        pass  # TODO: read from filesystem (Docker secrets support)
-    if PASSWORD.startswith("/"):
-        pass  # TODO: read from filesystem (Docker secrets support)
-    main(TOKEN, PASSWORD)
+    from utils import get_env
+
+    TOKEN = get_env("TELEGRAM_TOKEN")
+    main(TOKEN)

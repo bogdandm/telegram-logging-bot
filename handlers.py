@@ -2,49 +2,60 @@ import json
 import logging
 
 from telegram import Bot, Update
-from telegram.ext import CommandHandler, MessageHandler, Filters
 
-from utils import *
+from utils import get_env
+from utils.telegram import *
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def start(bot: Bot, update: Update):
-    bot.send_message(chat_id=update.message.chat_id, text="I'm a bot, please talk to me!")
-    return GUEST
+PASSWORD = get_env('TELEGRAM_ACCESS_PASSWORD')
 
 
-def debug(bot: Bot, update: Update):
+@command_handler('start')
+def start_handler(bot: Bot, update: Update):
+    bot.send_message(chat_id=update.message.chat_id, text="Please type access password:")
+    return WAIT_PASSWORD
+
+
+@regex_handler(r"^\w+$")
+def read_password(bot: Bot, update: Update):
+    if update.message.text.strip() == PASSWORD:
+        bot.send_message(chat_id=update.message.chat_id, text="Valid password!")
+        return AUTHORIZED
+    else:
+        bot.send_message(chat_id=update.message.chat_id, text="Invalid password :(")
+
+
+@command_handler('debug')
+def debug_handler(bot: Bot, update: Update):
     global main_conversation
     bot.send_message(
         chat_id=update.message.chat_id,
         text=json.dumps(update.__dict__, default=lambda o: repr(o), indent=4, sort_keys=True)
     )
-    return GUEST
+    bot.send_message(
+        chat_id=update.message.chat_id,
+        text=json.dumps(update.message.__dict__, default=lambda o: repr(o), indent=4, sort_keys=True)
+    )
+    return PASSWORD
 
 
-def echo(bot: Bot, update: Update):
-    bot.send_message(chat_id=update.message.chat_id, text=update.message.text.replace("/", "\\"))
-
-
-def state(bot: Bot, update: Update):
+@command_handler('state')
+def state_handler(bot: Bot, update: Update):
     global main_conversation
     bot.send_message(chat_id=update.message.chat_id, text=get_state(main_conversation, update.effective_chat))
 
 
-start_handler = CommandHandler('start', start)
-debug_handler = CommandHandler('debug', debug)
-state_handler = CommandHandler('state', state)
-echo_handler = MessageHandler(Filters.text, echo),
+all_states = [debug_handler, state_handler]
 
 main_conversation = ConversationHandler(
     entry_points=[start_handler],
     states={
-        GUEST: [debug_handler, state_handler],
-        AUTHORIZED: (),
-        LISTENING: ()
+        WAIT_PASSWORD: [read_password] + all_states,
+        AUTHORIZED: [] + all_states,
+        LISTENING: [] + all_states
     },
-    fallbacks=(echo_handler,),
+    fallbacks=(),
     per_chat=True
 )
