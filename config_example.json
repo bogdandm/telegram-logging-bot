@@ -1,0 +1,9 @@
+{
+  "REDIS": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "db": 1
+  },
+  "REDIS_CHANNEL": "log-channel",
+  "BACKUP_PATH": "/Users/nicecode/PycharmProjects/telegram-logging-bot/backup"
+}
