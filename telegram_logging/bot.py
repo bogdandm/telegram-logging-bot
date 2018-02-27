@@ -1,13 +1,16 @@
 import json
 import logging
+import pickle
+import sys
 import threading
 from signal import SIGABRT, SIGTERM, SIGINT
 from time import sleep
-from typing import Callable, Tuple, Optional, List
+from typing import List
 
 import redis.exceptions
 from telegram import Bot, Update, Chat, ParseMode
 from telegram.ext import Updater, ConversationHandler
+from telegram.utils.promise import Promise
 
 from telegram_logging.utils.telegram import command_handler, regex_handler
 
@@ -42,11 +45,12 @@ class LoggingBot:
 
         self._stopped = threading.Event()
         self.redis_listener_thread = threading.Thread(target=self.redis_listener, name="redis_listener_thread")
+        self.data_lock = threading.Lock()
+        self.data_saver_thread = threading.Thread(target=self.data_saver, name="data_saver_thread")
 
         self.updater = Updater(token, user_sig_handler=self.signal_handler)
         self.dispatcher = self.updater.dispatcher
-        self.listeners_4xx = set()  # Set[chat_id]
-        self.listeners_5xx = set()  # Set[chat_id]
+        self.listeners = set()  # Set[chat_id]
 
         # ===== HANDLERS ======
 
@@ -63,29 +67,16 @@ class LoggingBot:
             else:
                 bot.send_message(chat_id=update.message.chat_id, text="Invalid password :(")
 
-        @command_handler('listen_all')
-        def listen_all_handler(bot: Bot, update: Update):
-            self.listeners_4xx.add(update.message.chat_id)
-            self.listeners_5xx.add(update.message.chat_id)
+        @command_handler('listen')
+        def listen_handler(bot: Bot, update: Update):
+            self.listeners.add(update.message.chat_id)
             bot.send_message(chat_id=update.message.chat_id, text="Listen to 4xx and 5xx errors")
             return LISTENING
 
-        @command_handler('listen_400')
-        def listen_400(bot: Bot, update: Update):
-            self.listeners_4xx.add(update.message.chat_id)
-            bot.send_message(chat_id=update.message.chat_id, text="Listen to 4xx errors")
-            return LISTENING
-
-        @command_handler('listen_500')
-        def listen_500(bot: Bot, update: Update):
-            self.listeners_5xx.add(update.message.chat_id)
-            bot.send_message(chat_id=update.message.chat_id, text="Listen to 5xx errors")
-            return LISTENING
 
         @command_handler('unlisten')
         def unlisten(bot: Bot, update: Update):
-            self.listeners_4xx.remove(update.message.chat_id)
-            self.listeners_5xx.remove(update.message.chat_id)
+            self.listeners.remove(update.message.chat_id)
             bot.send_message(chat_id=update.message.chat_id, text="Stop listen to errors")
             return AUTHORIZED
 
@@ -123,7 +114,7 @@ class LoggingBot:
             entry_points=[start_handler],
             states={
                 WAIT_PASSWORD: [read_password] + global_handlers,
-                AUTHORIZED: [listen_all_handler, listen_400, listen_500] + global_handlers,
+                AUTHORIZED: [listen_handler] + global_handlers,
                 LISTENING: [unlisten] + global_handlers
             },
             fallbacks=(unknown_command_handler,),
@@ -133,12 +124,35 @@ class LoggingBot:
         self.dispatcher.add_handler(self.main_conversation)
 
     def signal_handler(self, *args, **kwargs):
-        print("SIG")
         self._stopped.set()
+        self.save_data()
 
     @property
     def is_stopped(self):
         return self._stopped.is_set()
+
+    def run(self):
+        self.load_data()
+        self.updater.start_polling(.1)
+        self.redis_listener_thread.start()
+        self.updater.idle(STOP_SIGNALS)
+        self.redis_listener_thread.join()
+
+    def format_message(self, data):
+        lines = data.decode('utf-8').split("\n")  # type: List[str]
+        out_lines = []
+        _flag = False
+        for line in map(str.strip, lines):
+            if _flag:
+                line = ">>> " + line
+            if line.startswith("File"):
+                out_lines.append(" ")
+                _flag = True
+            else:
+                _flag = False
+            out_lines.append(line)
+
+        return "```{}```".format("\n".join(out_lines))
 
     def redis_listener(self):
         while not self.is_stopped:
@@ -157,23 +171,10 @@ class LoggingBot:
                 except redis.exceptions.ConnectionError:
                     connected = False
 
-                while message and connected:
+                while message and connected and not self.is_stopped:
                     if message["type"] == "message":
-                        lines = message["data"].decode('utf-8').split("\n") # type: List[str]
-                        out_lines = []
-                        _flag = False
-                        for line in map(str.strip, lines):
-                            if _flag:
-                                line = ">>> " + line
-                            if line.startswith("File"):
-                                out_lines.append(" ")
-                                _flag = True
-                            else:
-                                _flag = False
-                            out_lines.append(line)
-
-                        data = "```{}```".format("\n".join(out_lines))
-                        for chat_id in self.listeners_5xx:
+                        data = self.format_message(message["data"])
+                        for chat_id in self.listeners:
                             self.updater.bot.send_message(chat_id, data, parse_mode=ParseMode.MARKDOWN)
 
                     try:
@@ -186,11 +187,53 @@ class LoggingBot:
                 else:
                     sleep(0.1)
 
-    def run(self):
-        self.updater.start_polling(.1)
-        self.redis_listener_thread.start()
-        self.updater.idle(STOP_SIGNALS)
-        self.redis_listener_thread.join()
+    def load_data(self):
+        with self.data_lock:
+            logger.debug("Loaing data...")
+            try:
+                with open(os.path.join(self.config["BACKUP_PATH"], 'conversations'), 'rb') as f:
+                    self.main_conversation.conversations = pickle.load(f)
+                with open(os.path.join(self.config["BACKUP_PATH"], 'listeners'), 'rb') as f:
+                    self.listeners = pickle.load(f)
+                with open(os.path.join(self.config["BACKUP_PATH"], 'userdata'), 'rb') as f:
+                    self.dispatcher.user_data = pickle.load(f)
+            except FileNotFoundError:
+                logger.error("Data file not found")
+            except:
+                logger.error(sys.exc_info()[0])
+            else:
+                logger.debug("Data loaded")
+
+    def save_data(self):
+        with self.data_lock:
+            logger.debug("Saving data...")
+            resolved = dict()
+            for k, v in self.main_conversation.conversations.items():
+                if isinstance(v, tuple) and len(v) is 2 and isinstance(v[1], Promise):
+                    try:
+                        new_state = v[1].result()  # Result of async function
+                    except:
+                        new_state = v[0]  # In case async function raised an error, fallback to old state
+                    resolved[k] = new_state
+                else:
+                    resolved[k] = v
+            try:
+                with open(os.path.join(self.config["BACKUP_PATH"], 'conversations'), 'wb+') as f:
+                    pickle.dump(resolved, f)
+                with open(os.path.join(self.config["BACKUP_PATH"], 'listeners'), 'wb+') as f:
+                    pickle.dump(self.listeners, f)
+                with open(os.path.join(self.config["BACKUP_PATH"], 'userdata'), 'wb+') as f:
+                    pickle.dump(self.dispatcher.user_data, f)
+            except Exception as e:
+                logger.exception(e)
+            else:
+                logger.debug("Data saved")
+
+    def data_saver(self):
+        sleep(60)
+        while not self.is_stopped:
+            self.save_data()
+            sleep(60)
 
 
 if __name__ == '__main__':

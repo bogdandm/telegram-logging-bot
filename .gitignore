@@ -7,3 +7,6 @@ dist/
 
 sandbox*
 config.json
+conversations
+listeners
+userdata
