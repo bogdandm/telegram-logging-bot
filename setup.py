@@ -1,10 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='telegram-logging-bot',
     version='v0.0',
-    packages=['utils'],
-    package_dir={'': 'telegram_logging'},
+    packages=find_packages(),
     url='https://github.com/bogdandm/telegram-logging-bot',
     license='MIT',
     author='Bogdan Kalashnikov',

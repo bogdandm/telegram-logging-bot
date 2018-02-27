@@ -135,6 +135,7 @@ class LoggingBot:
         self.load_data()
         self.updater.start_polling(.1)
         self.redis_listener_thread.start()
+        self.data_saver_thread.start()
         self.updater.idle(STOP_SIGNALS)
         self.redis_listener_thread.join()
 
@@ -230,10 +231,8 @@ class LoggingBot:
                 logger.debug("Data saved")
 
     def data_saver(self):
-        sleep(60)
-        while not self.is_stopped:
+        while not self._stopped.wait(self.config["AUTOSAVE"]):
             self.save_data()
-            sleep(60)
 
 
 if __name__ == '__main__':
