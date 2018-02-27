@@ -1,0 +1,10 @@
+{
+  "REDIS": {
+    "host": "redis",
+    "port": 6379,
+    "db": 1
+  },
+  "AUTOSAVE": 60,
+  "REDIS_CHANNEL": "log-channel",
+  "BACKUP_PATH": "/opt/telegram-logging-bot-data"
+}
