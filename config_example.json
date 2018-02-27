@@ -5,5 +5,5 @@
     "db": 1
   },
   "REDIS_CHANNEL": "log-channel",
-  "BACKUP_PATH": "/Users/nicecode/PycharmProjects/telegram-logging-bot/backup"
+  "BACKUP_PATH": "/Users/AwesomeUser/telegram-logging-bot/backup"
 }

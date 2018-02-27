@@ -1,11 +1,12 @@
 import json
 import logging
 import threading
-from signal import SIGABRT, SIGTERM, SIGINT, signal
+from signal import SIGABRT, SIGTERM, SIGINT
 from time import sleep
+from typing import Callable, Tuple, Optional, List
 
-import redis
-from telegram import Bot, Update, Chat
+import redis.exceptions
+from telegram import Bot, Update, Chat, ParseMode
 from telegram.ext import Updater, ConversationHandler
 
 from telegram_logging.utils.telegram import command_handler, regex_handler
@@ -13,11 +14,13 @@ from telegram_logging.utils.telegram import command_handler, regex_handler
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+TELEGRAM_MSG_MAX_LEN = 4096 - 10
 WAIT_PASSWORD, AUTHORIZED, LISTENING = range(3)
 
 
 def map_state(st):
     return ["WAIT_PASSWORD", "AUTHORIZED", "LISTENING"][st]
+
 
 """
 START -> WAIT_PASSWORD -> AUTHORIZED <-> LISTENING
@@ -28,7 +31,9 @@ def get_state(conv_handler: ConversationHandler, chat: Chat):
     state = conv_handler.conversations[(chat.id,) * 2]
     return map_state(state)
 
+
 STOP_SIGNALS = (SIGINT, SIGTERM, SIGABRT)
+
 
 class LoggingBot:
     def __init__(self, config_path: str, token: str, password: str):
@@ -78,7 +83,7 @@ class LoggingBot:
             return LISTENING
 
         @command_handler('unlisten')
-        def unlisten(bot: bot, update: Update):
+        def unlisten(bot: Bot, update: Update):
             self.listeners_4xx.remove(update.message.chat_id)
             self.listeners_5xx.remove(update.message.chat_id)
             bot.send_message(chat_id=update.message.chat_id, text="Stop listen to errors")
@@ -136,19 +141,50 @@ class LoggingBot:
         return self._stopped.is_set()
 
     def redis_listener(self):
-        r = redis.StrictRedis(**self.config["REDIS"])
-        pubsub = r.pubsub(ignore_subscribe_messages=True)
-        pubsub.subscribe(self.config["REDIS_CHANNEL"])
         while not self.is_stopped:
-            message = pubsub.get_message()
-            while message:
-                if message["type"] == "message":
-                    data = message["data"]  # type: bytes
-                    for chat_id in self.listeners_5xx:
-                        self.updater.bot.send_message(chat_id, data.decode('utf-8'))
+            try:
+                r = redis.StrictRedis(**self.config["REDIS"])
+                pubsub = r.pubsub(ignore_subscribe_messages=True)
+                pubsub.subscribe(self.config["REDIS_CHANNEL"])
+                connected = True
+            except Exception as e:
+                logger.warning(e)
+                connected = False
+                sleep(0.1)
+            while connected and not self.is_stopped:
+                try:
+                    message = pubsub.get_message()
+                except redis.exceptions.ConnectionError:
+                    connected = False
 
-                message = pubsub.get_message()
-            sleep(0.1)
+                while message and connected:
+                    if message["type"] == "message":
+                        lines = message["data"].decode('utf-8').split("\n") # type: List[str]
+                        out_lines = []
+                        _flag = False
+                        for line in map(str.strip, lines):
+                            if _flag:
+                                line = ">>> " + line
+                            if line.startswith("File"):
+                                out_lines.append(" ")
+                                _flag = True
+                            else:
+                                _flag = False
+                            out_lines.append(line)
+
+                        data = "```{}```".format("\n".join(out_lines))
+                        for chat_id in self.listeners_5xx:
+                            self.updater.bot.send_message(chat_id, data, parse_mode=ParseMode.MARKDOWN)
+
+                    try:
+                        message = pubsub.get_message()
+                    except redis.exceptions.ConnectionError:
+                        connected = False
+
+                if not connected:
+                    logger.info("Lost Redis connection -> reconnect")
+                else:
+                    sleep(0.1)
 
     def run(self):
         self.updater.start_polling(.1)
