@@ -240,8 +240,8 @@ if __name__ == '__main__':
     from telegram_logging.utils import get_env
 
     CONFIG_PATH = os.environ.get("CONFIG_PATH")
-    TOKEN = get_env("TELEGRAM_TOKEN")
-    PASSWORD = get_env("TELEGRAM_ACCESS_PASSWORD")
+    TOKEN = get_env("TELEGRAM_TOKEN").strip()
+    PASSWORD = get_env("TELEGRAM_ACCESS_PASSWORD").strip()
 
     bot = LoggingBot(CONFIG_PATH, TOKEN, PASSWORD)
     bot.run()
