@@ -13,8 +13,6 @@ from telegram.utils.promise import Promise
 
 from telegram_logging.utils.telegram import command_handler, regex_handler
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 TELEGRAM_MSG_MAX_LEN = 4096 - 10
 WAIT_PASSWORD, AUTHORIZED, LISTENING = range(3)
@@ -173,7 +171,7 @@ class LoggingBot:
             except Exception as e:
                 logger.warning(e)
                 connected = False
-                sleep(0.1)
+                sleep(1)
             while connected and not self.is_stopped:
                 try:
                     message = pubsub.get_message()
@@ -248,7 +246,10 @@ if __name__ == '__main__':
     from telegram_logging.utils import get_env
 
     DEBUG = bool(int(os.environ.get("DEBUG", "0")))
-    logger.setLevel(logging.DEBUG if DEBUG else logging.WARNING)
+
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        level=logging.DEBUG if DEBUG else logging.WARNING)
+    logger = logging.getLogger(__name__)
 
     CONFIG_PATH = os.environ.get("CONFIG_PATH")
     TOKEN = get_env("TELEGRAM_TOKEN").strip()
