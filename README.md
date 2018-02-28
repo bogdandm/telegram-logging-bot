@@ -1,7 +1,7 @@
 # Telegram Logging Bot
 Allows to get debug information from service throw redis pubsub protocol
 
-## Installation
+## Installing
 ### Pip
 _Package will publish after first stable release_
 
@@ -16,7 +16,7 @@ pyton -m telegram_logging.bot
 ### Docker
 `bogdandm/telegramloggingbot:latest`
 
-**build argument** - `CONFIG_PATH` - path to `config.json` relative to `Dockerfile`
+**build argument** - `CONFIG_PATH` - path to `config.json`
 
 ### docker-compose
 See `docker-compose.yml`
@@ -37,6 +37,13 @@ Could be read from filesystem if value is a absolute filesystem path.
 2. Entry access password
 3. `/listen` - Subscribe for error notifications
 4. `/unlisten` - Unsubscribe 
+
+## Built With
+- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
+- [redis-py](https://github.com/andymccurdy/redis-py)
+
+## License
+This project is licensed under the MIT License - see the LICENSE.md file for details
 
 ## States workflow:
 ```
