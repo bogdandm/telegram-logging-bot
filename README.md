@@ -14,9 +14,15 @@ pyton -m telegram_logging.bot
 ```
 
 ### Docker
-`bogdandm/telegramloggingbot:latest`
+Pull `bogdandm/telegramloggingbot:latest` (`:dev`, `:release`)
 
-**build argument** - `CONFIG_PATH` - path to `config.json`
+or manually build
+
+```bash
+git clone https://github.com/bogdandm/telegram-logging-bot.git
+cd telegram-logging-bot
+docker build . --build-arg CONFIG_BUILD_PATH=<your_config_json_path>
+```
 
 ### docker-compose
 See `docker-compose.yml`

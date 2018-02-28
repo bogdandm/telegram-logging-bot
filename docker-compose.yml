@@ -15,6 +15,7 @@ services:
     environment:
       - TELEGRAM_TOKEN=/run/secrets/telegram-logging-bot-token
       - TELEGRAM_ACCESS_PASSWORD=/run/secrets/telegram-logging-bot-password
+      # - CONFIG_PATH=<your_path>
     volumes:
       - telegram-logging-bot-data:/opt/telegram-logging-bot-data
     working_dir: /opt/telegram-logging-bot-data
