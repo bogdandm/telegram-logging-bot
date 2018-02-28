@@ -24,4 +24,10 @@ Could be read from filesystem if value is a absolute filesystem path.
     - `AUTOSAVE` \[seconds\] - data autosave interval.    
      _Note:_ Chat and user data will be saved automatically on normal shutdown.
     - `REDIS_CHANNEL` redis pubsub channel for listening
-    - `BACKUP_PATH` - path to save data. In Docker container point to a volume/mounted directory. 
+    - `BACKUP_PATH` - path to save data. In Docker container point to a volume/mounted directory.
+    
+## Usage
+1. `/start` - Entry point
+2. Entry access password
+3. `/listen` - Subscribe for error notifications
+4. `/unlisten` - Unsubscribe 
