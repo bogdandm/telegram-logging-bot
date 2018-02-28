@@ -5,7 +5,13 @@ Allows to get debug information from service throw redis pubsub protocol
 ### Pip
 _Package will publish after first stable release_
 
-`pip install git+https://github.com/bogdandm/telegram-logging-bot.git` 
+`pip install git+https://github.com/bogdandm/telegram-logging-bot.git`
+
+```
+# Set up env variables
+...
+pyton -m telegram_logging.bot
+```
 
 ### Docker
 `bogdandm/telegramloggingbot:latest`
@@ -31,3 +37,11 @@ Could be read from filesystem if value is a absolute filesystem path.
 2. Entry access password
 3. `/listen` - Subscribe for error notifications
 4. `/unlisten` - Unsubscribe 
+
+## States workflow:
+```
+START -> WAIT_PASSWORD <-> AUTHORIZED <-> LISTENING
+                 ^                            |
+                 |                            |
+                 ------------------------------
+```

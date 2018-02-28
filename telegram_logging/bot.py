@@ -26,7 +26,12 @@ def map_state(st):
 
 
 """
-START -> WAIT_PASSWORD -> AUTHORIZED <-> LISTENING
+States workflow:
+
+START -> WAIT_PASSWORD <-> AUTHORIZED <-> LISTENING
+                 ^                            |
+                 |                            |
+                 ------------------------------
 """
 
 
@@ -62,22 +67,44 @@ class LoggingBot:
         @regex_handler(r"^\w+$")
         def read_password(bot: Bot, update: Update):
             if update.message.text.strip() == self.password:
-                bot.send_message(chat_id=update.message.chat_id, text="Valid password!")
+                bot.send_message(
+                    chat_id=update.message.chat_id,
+                    parse_mode=ParseMode.MARKDOWN,
+                    text="You successfully logged in.\n"
+                    "\n"
+                    "List of commands:\n"
+                    "`/logout` - Logout\n"
+                    "`/listen` - Subscribe for error notifications\n"
+                    "`/unlisten` (after `/listen`) - Unsubscribe\n"
+                )
                 return AUTHORIZED
             else:
-                bot.send_message(chat_id=update.message.chat_id, text="Invalid password :(")
+                bot.send_message(chat_id=update.message.chat_id, text="Wrong password :(")
+
+
+        @command_handler('logout')
+        def logout_handler(bot: Bot, update: Update):
+            try:
+                self.listeners.remove(update.message.chat_id)
+            except KeyError:
+                pass
+            else:
+                bot.send_message(chat_id=update.message.chat_id, text="Stop listening to errors")
+            bot.send_message(chat_id=update.message.chat_id, text="You successfully logged out. "
+                                                                  "Type password again to log in.")
+            return WAIT_PASSWORD
 
         @command_handler('listen')
         def listen_handler(bot: Bot, update: Update):
             self.listeners.add(update.message.chat_id)
-            bot.send_message(chat_id=update.message.chat_id, text="Listen to 4xx and 5xx errors")
+            bot.send_message(chat_id=update.message.chat_id, text="Listen to errors")
             return LISTENING
 
 
         @command_handler('unlisten')
         def unlisten(bot: Bot, update: Update):
             self.listeners.remove(update.message.chat_id)
-            bot.send_message(chat_id=update.message.chat_id, text="Stop listen to errors")
+            bot.send_message(chat_id=update.message.chat_id, text="Stop listening to errors")
             return AUTHORIZED
 
         @command_handler('debug')
@@ -113,9 +140,9 @@ class LoggingBot:
         self.main_conversation = ConversationHandler(
             entry_points=[start_handler],
             states={
-                WAIT_PASSWORD: [read_password] + global_handlers,
-                AUTHORIZED: [listen_handler] + global_handlers,
-                LISTENING: [unlisten] + global_handlers
+                WAIT_PASSWORD: [start_handler, read_password] + global_handlers,
+                AUTHORIZED: [logout_handler, listen_handler] + global_handlers,
+                LISTENING: [logout_handler, unlisten] + global_handlers
             },
             fallbacks=(unknown_command_handler,),
             per_chat=True
