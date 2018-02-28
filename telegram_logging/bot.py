@@ -5,7 +5,6 @@ import sys
 import threading
 from signal import SIGABRT, SIGTERM, SIGINT
 from time import sleep
-from typing import List
 
 import redis.exceptions
 from telegram import Bot, Update, Chat, ParseMode
@@ -71,16 +70,15 @@ class LoggingBot:
                     chat_id=update.message.chat_id,
                     parse_mode=ParseMode.MARKDOWN,
                     text="You successfully logged in.\n"
-                    "\n"
-                    "List of commands:\n"
-                    "`/logout` - Logout\n"
-                    "`/listen` - Subscribe for error notifications\n"
-                    "`/unlisten` (after `/listen`) - Unsubscribe\n"
+                         "\n"
+                         "List of commands:\n"
+                         "`/logout` - Logout\n"
+                         "`/listen` - Subscribe for error notifications\n"
+                         "`/unlisten` (after `/listen`) - Unsubscribe\n"
                 )
                 return AUTHORIZED
             else:
                 bot.send_message(chat_id=update.message.chat_id, text="Wrong password :(")
-
 
         @command_handler('logout')
         def logout_handler(bot: Bot, update: Update):
@@ -99,7 +97,6 @@ class LoggingBot:
             self.listeners.add(update.message.chat_id)
             bot.send_message(chat_id=update.message.chat_id, text="Listen to errors")
             return LISTENING
-
 
         @command_handler('unlisten')
         def unlisten(bot: Bot, update: Update):
@@ -249,6 +246,9 @@ class LoggingBot:
 if __name__ == '__main__':
     import os
     from telegram_logging.utils import get_env
+
+    DEBUG = bool(int(os.environ.get("DEBUG", "0")))
+    logger.setLevel(logging.DEBUG if DEBUG else logging.WARNING)
 
     CONFIG_PATH = os.environ.get("CONFIG_PATH")
     TOKEN = get_env("TELEGRAM_TOKEN").strip()

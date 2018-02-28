@@ -22,6 +22,7 @@ pyton -m telegram_logging.bot
 See `docker-compose.yml`
 
 ## Settings
+- _(env)_ `DEBUG` - 0 or 1 - Set logger level to WARNING or DEBUG
 - _(env)_ `TELEGRAM_TOKEN` - telegram bot token. Could be read from filesystem if value is a absolute filesystem path.
 - _(env)_ `TELEGRAM_ACCESS_PASSWORD` - password for user auth. 
 Could be read from filesystem if value is a absolute filesystem path.
