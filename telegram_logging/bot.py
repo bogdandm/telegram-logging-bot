@@ -166,22 +166,6 @@ class LoggingBot:
         self.updater.idle(STOP_SIGNALS)
         self.redis_listener_thread.join()
 
-    def format_message(self, data):
-        lines = data.decode('utf-8').split("\n")  # type: List[str]
-        out_lines = []
-        _flag = False
-        for line in map(str.strip, lines):
-            if _flag:
-                line = ">>> " + line
-            if line.startswith("File"):
-                out_lines.append(" ")
-                _flag = True
-            else:
-                _flag = False
-            out_lines.append(line)
-
-        return "```{}```".format("\n".join(out_lines))
-
     def redis_listener(self):
         while not self.is_stopped:
             try:
@@ -201,7 +185,7 @@ class LoggingBot:
 
                 while message and connected and not self.is_stopped:
                     if message["type"] == "message":
-                        data = self.format_message(message["data"])
+                        data = message["data"].decode('utf-8')
                         for chat_id in self.listeners:
                             self.updater.bot.send_message(chat_id, data, parse_mode=ParseMode.MARKDOWN)
 
