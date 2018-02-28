@@ -180,7 +180,7 @@ class LoggingBot:
 
                 while message and connected and not self.is_stopped:
                     if message["type"] == "message":
-                        data = message["data"].decode('utf-8')
+                        data = "```" + message["data"].decode('utf-8')[:TELEGRAM_MSG_MAX_LEN] + "```"
                         for chat_id in self.listeners:
                             self.updater.bot.send_message(chat_id, data, parse_mode=ParseMode.MARKDOWN)
 
