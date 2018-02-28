@@ -11,7 +11,7 @@ networks:
 
 services:
   telegram-logging-bot:
-    image: bogdandm/telegramloggingbot
+    image: bogdandm/telegramloggingbot:dev # or :latest or :release
     environment:
       - TELEGRAM_TOKEN=/run/secrets/telegram-logging-bot-token
       - TELEGRAM_ACCESS_PASSWORD=/run/secrets/telegram-logging-bot-password
@@ -22,7 +22,7 @@ services:
     networks:
       - my_net
     depends_on:
-      - "test-redis"
+      - "redis"
     entrypoint: python -m telegram_logging.bot
     secrets:
       - telegram-logging-bot-token
