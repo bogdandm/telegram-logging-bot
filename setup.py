@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='telegram-logging-bot',
-    version='v0.0',
+    version='v0.2',
     packages=find_packages(),
     url='https://github.com/bogdandm/telegram-logging-bot',
     license='MIT',
