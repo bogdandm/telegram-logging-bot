@@ -13,7 +13,6 @@ from telegram.utils.promise import Promise
 
 from telegram_logging.utils.telegram import command_handler, regex_handler
 
-
 TELEGRAM_MSG_MAX_LEN = 4096 - 10
 WAIT_PASSWORD, AUTHORIZED, LISTENING = range(3)
 
@@ -50,7 +49,14 @@ class LoggingBot:
         self.data_lock = threading.Lock()
         self.data_saver_thread = threading.Thread(target=self.data_saver, name="data_saver_thread")
 
-        self.updater = Updater(token, user_sig_handler=self.signal_handler)
+        self.updater = Updater(token, user_sig_handler=self.signal_handler, request_kwargs={
+            'proxy_url': os.environ.get("PROXY"),
+            'urllib3_proxy_kwargs': {
+                'username': os.environ.get("PROXY_LOGIN"),
+                'password': os.environ.get("PROXY_PASSWORD"),
+            } if "PROXY_LOGIN" in os.environ else {}
+        } if "PROXY" in os.environ else {})
+
         self.dispatcher = self.updater.dispatcher
         self.listeners = set()  # Set[chat_id]
 
